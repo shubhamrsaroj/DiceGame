@@ -5,12 +5,16 @@
 
 [functions]
   directory = "functions"
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "18"
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
 
 [[redirects]]
-  from = "/api/*"
+  from = "/.netlify/functions/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
