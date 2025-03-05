@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import axios from 'axios';
 
+// Add this near the top of your file, after imports
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 // Animation keyframes
 const slideIn = keyframes`
   from {
@@ -1056,15 +1059,15 @@ function App() {
     }
 
     setRolling(true);
-    setResult(null); // Clear previous result
+    setResult(null);
     playSound('roll');
 
     try {
-      const response = await axios.post('http://localhost:5000/api/roll-dice', {
+      const response = await axios.post(`${API_URL}/api/roll-dice`, {
         clientSeed,
         nonce,
         betAmount: betValue,
-        target: sliderPosition // Send the current slider position as target
+        target: sliderPosition
       });
 
       const { roll, won, payout } = response.data;
