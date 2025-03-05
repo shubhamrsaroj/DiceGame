@@ -3,168 +3,63 @@ const cors = require('cors');
 const crypto = require('crypto');
 
 const app = express();
-const port = process.env.PORT || 5000;
 
-app.use(cors());
+// Enable CORS for all routes
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://dice-game-client.vercel.app'] 
+    : ['http://localhost:3000']
+}));
+
 app.use(express.json());
 
-// Store server seed (in a real application, this should be stored in a database)
-let serverSeed = crypto.randomBytes(32).toString('hex');
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
 
-// Store recent results (in a real application, this should be stored in a database)
-let recentResults = [];
-
-// Store game statistics
-let gameStats = {
-    totalBets: 0,
-    totalWins: 0,
-    totalLosses: 0,
-    highestWin: 0,
-    lowestRoll: 100,
-    highestRoll: 0
-};
-
-// Simple rate limiting
-const requestCounts = new Map();
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS = 30; // 30 requests per minute
-
-function rateLimit(ip) {
-    const now = Date.now();
-    const userRequests = requestCounts.get(ip) || [];
-    const recentRequests = userRequests.filter(time => now - time < RATE_LIMIT_WINDOW);
-    
-    if (recentRequests.length >= MAX_REQUESTS) {
-        return false;
-    }
-    
-    recentRequests.push(now);
-    requestCounts.set(ip, recentRequests);
-    return true;
-}
-
-// Generate hash for client to verify
-function generateHash(serverSeed, clientSeed, nonce) {
-    return crypto.createHash('sha256')
-        .update(serverSeed + clientSeed + nonce.toString())
-        .digest('hex');
-}
-
-// Generate roll number (0-100) from hash
-function getRollFromHash(hash) {
-    const decimal = parseInt(hash.slice(0, 8), 16);
-    // Generate a number between 0 and 100 with 2 decimal places
-    return Number((decimal % 10001) / 100).toFixed(2);
-}
-
-// Calculate if roll is a win based on target
-function isWin(roll, target) {
-    return parseFloat(roll) >= target;
-}
-
-// Update game statistics
-function updateGameStats(roll, won, payout) {
-    gameStats.totalBets++;
-    if (won) {
-        gameStats.totalWins++;
-        if (payout > gameStats.highestWin) {
-            gameStats.highestWin = payout;
-        }
-    } else {
-        gameStats.totalLosses++;
-    }
-
-    const rollValue = parseFloat(roll);
-    if (rollValue < gameStats.lowestRoll) {
-        gameStats.lowestRoll = rollValue;
-    }
-    if (rollValue > gameStats.highestRoll) {
-        gameStats.highestRoll = rollValue;
-    }
-}
-
+// Dice roll endpoint
 app.post('/api/roll-dice', (req, res) => {
-    // Rate limiting
-    const clientIp = req.ip;
-    if (!rateLimit(clientIp)) {
-        return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  try {
+    const { clientSeed, nonce, betAmount, target } = req.body;
+
+    if (!clientSeed || !nonce || !betAmount || target === undefined) {
+      return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    const { clientSeed, nonce, betAmount, target = 50.50 } = req.body;
+    // Generate a random number between 0 and 100
+    const serverSeed = crypto.randomBytes(32).toString('hex');
+    const combinedSeed = `${clientSeed}-${nonce}-${serverSeed}`;
+    const hash = crypto.createHash('sha256').update(combinedSeed).digest('hex');
     
-    // Validate required parameters
-    if (!clientSeed || nonce === undefined || !betAmount) {
-        return res.status(400).json({ error: 'Missing required parameters' });
-    }
-
-    // Validate bet amount
-    const bet = parseFloat(betAmount);
-    if (isNaN(bet) || bet <= 0) {
-        return res.status(400).json({ error: 'Invalid bet amount' });
-    }
-
-    // Generate roll hash
-    const hash = generateHash(serverSeed, clientSeed, nonce);
-    const roll = getRollFromHash(hash);
+    // Use first 4 bytes of hash to generate number between 0 and 100
+    const roll = (parseInt(hash.slice(0, 8), 16) % 10000) / 100;
     
     // Determine if player won
-    const won = isWin(roll, target);
-    const multiplier = 2.0000;
-    const payout = won ? bet * multiplier : 0;
-
-    // Update game statistics
-    updateGameStats(roll, won, payout);
-
-    // Store current server seed for verification
-    const currentServerSeed = serverSeed;
+    const won = roll >= target;
     
-    // Generate new server seed for next round
-    serverSeed = crypto.randomBytes(32).toString('hex');
-
-    // Add result to recent results
-    recentResults.unshift({
-        roll: parseFloat(roll),
-        won,
-        payout,
-        timestamp: Date.now()
-    });
-    if (recentResults.length > 10) {
-        recentResults.pop();
-    }
+    // Calculate payout (2x for winning)
+    const payout = won ? betAmount * 2 : 0;
 
     res.json({
-        roll,
-        won,
-        payout,
-        hash,
-        serverSeed: currentServerSeed,
-        nextServerSeed: serverSeed,
-        target,
-        multiplier,
-        winChance: 49.5000,
-        gameStats
+      roll,
+      won,
+      payout,
+      serverSeed
     });
+  } catch (error) {
+    console.error('Error processing roll:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-// Endpoint to get new server seed
-app.get('/api/server-seed', (req, res) => {
-    serverSeed = crypto.randomBytes(32).toString('hex');
-    res.json({ serverSeed });
-});
+// For Vercel, we export the app
+module.exports = app;
 
-// Endpoint to get recent results
-app.get('/api/recent-results', (req, res) => {
-    res.json({ 
-        results: recentResults,
-        gameStats 
-    });
-});
-
-// Endpoint to get game statistics
-app.get('/api/stats', (req, res) => {
-    res.json({ gameStats });
-});
-
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-}); 
+// Only listen if not running on Vercel
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+} 
