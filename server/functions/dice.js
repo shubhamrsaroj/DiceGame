@@ -6,7 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.post('/roll-dice', (req, res) => {
+app.post('/', (req, res) => {
   try {
     const { betAmount, selectedNumber } = req.body;
     
