@@ -1,6 +1,6 @@
 [build]
   base = "./"
-  command = "npm install && cd client && npm install && npm run build"
+  command = "cd client && npm install && npm run build"
   publish = "client/build"
 
 [functions]
@@ -10,6 +10,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  CI = "false"
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
@@ -24,4 +25,9 @@
   from = "/*"
   to = "/index.html"
   status = 200
-  force = true 
+  force = true
+
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate" 
