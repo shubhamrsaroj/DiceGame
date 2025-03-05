@@ -4,7 +4,7 @@
   publish = "build"
 
 [functions]
-  directory = "../server/functions"
+  directory = "../functions"
 
 [[redirects]]
   from = "/api/*"
