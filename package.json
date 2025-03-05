@@ -8,8 +8,9 @@
     "serverless-http": "^3.1.1"
   },
   "scripts": {
-    "build": "cd client && npm install && npm run build",
+    "build": "npm install && cd client && npm install && npm run build",
     "start": "cd client && npm start",
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "build:functions": "cd functions && npm install"
   }
 } 
