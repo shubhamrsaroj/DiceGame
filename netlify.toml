@@ -11,15 +11,10 @@
 [build.environment]
   NODE_VERSION = "18"
   CI = "false"
+  GENERATE_SOURCEMAP = "false"
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
 
 [[redirects]]
   from = "/*"
@@ -27,7 +22,15 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
     [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate" 
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block" 
