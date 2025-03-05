@@ -1,45 +1,25 @@
- # Dice Game
+# Dice Game
 
-A modern, interactive dice game built with React and Node.js. Players can bet on dice rolls with a sleek, animated interface and real-time results.
+A full-stack dice game application built with React and Node.js.
 
 ## Features
 
-- Interactive slider-based betting interface
-- Smooth animations and visual effects
-- Real-time sound effects
-- Auto-betting functionality
-- Budget management system
-- Win/loss tracking
-- Responsive design
+- Real-time dice rolling
+- Animated user interface
+- Score tracking
+- Sound effects
+- Betting system
+- Auto-betting mode
 
-## Project Structure
+## Technologies Used
 
-```
-bc-dice-game/
-├── client/              # React frontend
-│   ├── public/
-│   │   └── sounds/     # Game sound effects
-│   └── src/            # Source files
-│       ├── components/
-│       └── App.js
-└── server/             # Node.js backend
-    ├── routes/
-    └── server.js
-```
+- Frontend: React, Styled Components
+- Backend: Node.js, Express
+- Deployment: Vercel
 
-## Prerequisites
+## Setup Instructions
 
-- Node.js (v14 or higher)
-- npm (v6 or higher)
-
-## Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/shubhamrsaroj/DiceGame.git
-   cd DiceGame
-   ```
-
+1. Clone the repository
 2. Install dependencies for both client and server:
    ```bash
    # Install client dependencies
@@ -50,52 +30,24 @@ bc-dice-game/
    cd ../server
    npm install
    ```
-
-3. Create a `.env` file in the server directory with your configuration:
-   ```
-   PORT=5000
-   ```
-
-## Running the Application
-
-1. Start the server:
+3. Start the development servers:
    ```bash
-   cd server
+   # Start client (in client directory)
    npm start
+
+   # Start server (in server directory)
+   node index.js
    ```
 
-2. In a new terminal, start the client:
-   ```bash
-   cd client
-   npm start
-   ```
+## Game Rules
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser
+1. Set your bet amount
+2. Choose your target number
+3. Roll the dice
+4. Win if your roll is higher than your target
 
-## Technologies Used
+## Deployment
 
-- Frontend:
-  - React
-  - Styled Components
-  - Axios
-
-- Backend:
-  - Node.js
-  - Express
-  - Crypto (for random number generation)
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contact
-
-Shubham Saroj - [@shubhamrsaroj](https://github.com/shubhamrsaroj)
+The application is deployed on Vercel:
+- Frontend: [Live Demo](https://dice-game-client.vercel.app)
+- Backend API: [API Endpoint](https://dice-game-server.vercel.app)
