@@ -1063,11 +1063,11 @@ function App() {
     playSound('roll');
 
     try {
-      const response = await axios.post(`${API_URL}`, {
+      const response = await axios.post(`${API_URL}/api/roll-dice`, {
         clientSeed,
         nonce,
         betAmount: betValue,
-        selectedNumber: sliderPosition
+        target: sliderPosition
       });
 
       const { roll, won, payout } = response.data;

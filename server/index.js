@@ -3,63 +3,120 @@ const cors = require('cors');
 const crypto = require('crypto');
 
 const app = express();
+const port = process.env.PORT || 5000;
 
-// Enable CORS for all routes
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://dice-game-client.vercel.app'] 
-    : ['http://localhost:3000']
-}));
-
+app.use(cors());
 app.use(express.json());
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy' });
-});
+// Store server seed (in a real application, this should be stored in a database)
+let serverSeed = crypto.randomBytes(32).toString('hex');
 
-// Dice roll endpoint
+// Store recent results (in a real application, this should be stored in a database)
+let recentResults = [];
+
+// Simple rate limiting
+const requestCounts = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_REQUESTS = 30; // 30 requests per minute
+
+function rateLimit(ip) {
+    const now = Date.now();
+    const userRequests = requestCounts.get(ip) || [];
+    const recentRequests = userRequests.filter(time => now - time < RATE_LIMIT_WINDOW);
+    
+    if (recentRequests.length >= MAX_REQUESTS) {
+        return false;
+    }
+    
+    recentRequests.push(now);
+    requestCounts.set(ip, recentRequests);
+    return true;
+}
+
+// Generate hash for client to verify
+function generateHash(serverSeed, clientSeed, nonce) {
+    return crypto.createHash('sha256')
+        .update(serverSeed + clientSeed + nonce.toString())
+        .digest('hex');
+}
+
+// Generate roll number (0-100) from hash
+function getRollFromHash(hash) {
+    const decimal = parseInt(hash.slice(0, 8), 16);
+    // Generate a number between 0 and 100 with 2 decimal places
+    return Number((decimal % 10001) / 100).toFixed(2);
+}
+
+// Calculate if roll is a win based on target
+function isWin(roll, target) {
+    return parseFloat(roll) >= target;
+}
+
 app.post('/api/roll-dice', (req, res) => {
-  try {
-    const { clientSeed, nonce, betAmount, target } = req.body;
-
-    if (!clientSeed || !nonce || !betAmount || target === undefined) {
-      return res.status(400).json({ error: 'Missing required parameters' });
+    // Rate limiting
+    const clientIp = req.ip;
+    if (!rateLimit(clientIp)) {
+        return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
 
-    // Generate a random number between 0 and 100
-    const serverSeed = crypto.randomBytes(32).toString('hex');
-    const combinedSeed = `${clientSeed}-${nonce}-${serverSeed}`;
-    const hash = crypto.createHash('sha256').update(combinedSeed).digest('hex');
+    const { clientSeed, nonce, betAmount, target = 50.50 } = req.body;
     
-    // Use first 4 bytes of hash to generate number between 0 and 100
-    const roll = (parseInt(hash.slice(0, 8), 16) % 10000) / 100;
+    // Validate required parameters
+    if (!clientSeed || nonce === undefined || !betAmount) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    // Validate bet amount
+    const bet = parseFloat(betAmount);
+    if (isNaN(bet) || bet <= 0) {
+        return res.status(400).json({ error: 'Invalid bet amount' });
+    }
+
+    // Generate roll hash
+    const hash = generateHash(serverSeed, clientSeed, nonce);
+    const roll = getRollFromHash(hash);
     
     // Determine if player won
-    const won = roll >= target;
+    const won = isWin(roll, target);
+    const multiplier = 2.0000;
+    const payout = won ? bet * multiplier : 0;
+
+    // Store current server seed for verification
+    const currentServerSeed = serverSeed;
     
-    // Calculate payout (2x for winning)
-    const payout = won ? betAmount * 2 : 0;
+    // Generate new server seed for next round
+    serverSeed = crypto.randomBytes(32).toString('hex');
+
+    // Add result to recent results
+    recentResults.unshift(parseFloat(roll));
+    if (recentResults.length > 10) {
+        recentResults.pop();
+    }
 
     res.json({
-      roll,
-      won,
-      payout,
-      serverSeed
+        roll,
+        won,
+        payout,
+        hash,
+        serverSeed: currentServerSeed,
+        nextServerSeed: serverSeed,
+        target,
+        multiplier,
+        winChance: 49.5000
     });
-  } catch (error) {
-    console.error('Error processing roll:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
 });
 
-// For Vercel, we export the app
-module.exports = app;
+// Endpoint to get new server seed
+app.get('/api/server-seed', (req, res) => {
+    serverSeed = crypto.randomBytes(32).toString('hex');
+    res.json({ serverSeed });
+});
 
-// Only listen if not running on Vercel
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-} 
+// Endpoint to get recent results
+app.get('/api/recent-results', (req, res) => {
+    res.json({ results: recentResults });
+});
+
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+}); 
